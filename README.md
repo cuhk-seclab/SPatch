@@ -9,7 +9,7 @@ File Organization
   |--split/split.py: generating CUs and testing their compatibility (Section 4.2).
   |--slice.sc: intra-procedural slicing (Section 4.3.1).
   |--split/z3helper.py: comparing symbolic expressions using z3 (Section 4.3.4).
-  |--DSE_juxta: our implementation of DSE in Section 4.3.2, we will release the modified Juxta after the paper is accepted.
+  |--DSE_juxta: our implementation of DSE in Section 4.3.2.
   |--Others: dependency code, do not remove them.
 |--artifacts: the complementary results and case studies.
   |--case study: the 100 safe patches used in our case study (Section 3.1).
