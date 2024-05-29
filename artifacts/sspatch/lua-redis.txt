@@ -1,0 +1,76 @@
+diff -bur redis/deps/lua/src/ldebug.c redis_p/deps/lua/src/ldebug.c
+--- redis/deps/lua/src/ldebug.c	
++++ redis_p/deps/lua/src/ldebug.c	
+# From Lua commit b114c99a60cd87f7a7b2e5608b9492235b499d80
+@@ -94,9 +94,12 @@
+     ar->i_ci = cast_int(ci - L->base_ci);
+   }
+   else if (level < 0) {  /* level is of a lost tail call? */
++    if (ci == L->ci) status = 0; /*   level was negative? */
++    else {/*   level is of a lost tail call */
+     status = 1;
+     ar->i_ci = 0;
++    }
+   }
+   else status = 0;  /* no such level */
+   lua_unlock(L);
+   return status;
+   
+# From Lua commit b114c99a60cd87f7a7b2e5608b9492235b499d80
+@@ -110,6 +113,7 @@
+ 
+ static const char *findlocal (lua_State *L, CallInfo *ci, int n) {
+   const char *name;
++  if (ci == NULL) return NULL; /*   tail call? */
+   Proto *fp = getluaproto(ci);
+   if (fp && (name = luaF_getlocalname(fp, n, currentpc(L, ci))) != NULL)
+     return name;  /* is a local variable in a Lua function */
+diff -bur redis/deps/lua/src/ldo.c redis_p/deps/lua/src/ldo.c
+--- redis/deps/lua/src/ldo.c	
++++ redis_p/deps/lua/src/ldo.c	
+# From Lua commit fa3b126a23f42134e6c9cc1ae2ba9f8d2df97967
+@@ -226,6 +226,7 @@
+   }
+ #endif
+   /* move fixed parameters to final position */
++  luaD_checkstack(L, p->maxstacksize);  /*   check again for new 'base' */
+   fixed = L->top - actual;  /* first fixed argument */
+   base = L->top;  /* final position of first argument */
+   for (i=0; i<nfixargs; i++) {
+@@ -240,13 +241,21 @@
+   return base;
+ }
+ 
+# From Lua commit bfa0898312e1a36087fa10fa8020a706a2e8e885
++/*
++ ** Check whether __call metafield of 'func' is a function. If so, put
++ ** it in stack below original 'func' so that 'luaD_precall' can call
++ ** it. Raise an error if __call metafield is not a function. (The
++ ** check 'luaD_checkstack' avoids problems of errors in tag methods,
++ ** because both tag methods and error messages may need EXTRA_STACK.)
++ */
+ static StkId tryfuncTM (lua_State *L, StkId func) {
+   const TValue *tm = luaT_gettmbyobj(L, func, TM_CALL);
+   StkId p;
+   ptrdiff_t funcr = savestack(L, func);
+-  if (!ttisfunction(tm))
++  if (!ttisfunction(tm)) {
++    luaD_checkstack(L, 1);
+     luaG_typeerror(L, func, "call");
++  }
+   /* Open a hole inside the stack at `func' */
+   for (p = L->top; p > func; p--) setobjs2s(L, p, p-1);
+   incr_top(L);
+diff -bur redis/deps/lua/src/ltable.c redis_p/deps/lua/src/ltable.c
+--- redis/deps/lua/src/ltable.c	
++++ redis_p/deps/lua/src/ltable.c	
+# From Lua commit 8950e0c049cc51025d501453b85f501b15c5317a
+@@ -435,7 +435,7 @@
+ */
+ const TValue *luaH_getnum (Table *t, int key) {
+   /* (1 <= key && key <= t->sizearray) */
+-  if (cast(unsigned int, key-1) < cast(unsigned int, t->sizearray))
++  if (cast(unsigned int, key)-1 < cast(unsigned int, t->sizearray))
+     return &t->array[key-1];
+   else {
+     lua_Number nk = cast_num(key);

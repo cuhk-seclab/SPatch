@@ -1,0 +1,1 @@
+100 security patches in our case study (Section 3.1). 

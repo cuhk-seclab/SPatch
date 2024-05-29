@@ -1,0 +1,76 @@
+#Bug-1
+Vulnerability: CVE-2022-3602. 
+Impacts: Crash and code execution.
+Patching commit: https://github.com/openssl/openssl/commit/3b421ebc64c7b52f1b9feb3812bdc7781c784332
+
+crypto/punycode.c
+@@ -181,7 +181,7 @@ int ossl_punycode_decode(const char *pEncoded, const size_t enc_len,
+        n = n + i / (written_out + 1);
+        i %= (written_out + 1);
+
+-       if (written_out > max_out)
++       if (written_out >= max_out)
+            return 0;
+
+        memmove(pDecoded + i + 1, pDecoded + i,
+... //other code changes.
+
+The vulnerability is also in ProtonVPN/android-app: https://github.com/ProtonVPN/android-app/tree/master/openvpn/src/main/cpp/openssl/crypto/punycode.c
+
+
+#Bug-2
+Vulnerability: CVE-2022-3786 
+Impacts: Crash and a denial of service
+Patching commit: https://github.com/openssl/openssl/commit/680e65b94c916af259bfdc2e25f1ab6e0c7a97d6
+
+crypto/punycode.c
+@@ -327,12 +322,11 @@ int ossl_a2ulabel(const char *in, char *out, size_t *outlen)
+int ossl_a2ucompare(const char *a, const char *u)
+{
+-   char a_ulabel[LABEL_BUF_SIZE];
++   char a_ulabel[LABEL_BUF_SIZE + 1];
+    size_t a_size = sizeof(a_ulabel);
+
+-   if (ossl_a2ulabel(a, a_ulabel, &a_size) <= 0) {
++   if (ossl_a2ulabel(a, a_ulabel, &a_size) <= 0)
+        return -1;
+-   }
+
+-   return (strcmp(a_ulabel, u) == 0) ? 0 : 1;
++   return strcmp(a_ulabel, u) != 0;
+}
+
+The vulnerability is also in ProtonVPN/android-app: https://github.com/ProtonVPN/android-app/tree/master/openvpn/src/main/cpp/openssl/crypto/punycode.c
+
+#Bug-3
+Vulnerability: CVE-2023-0217
+Impacts: NULL reference
+Patching commit: https://github.com/openssl/openssl/commit/bcec03c33cc00a7b5eb89ebeeee59e604570a86a
+
+crypto/ffc/ffc_key_validate.c
+@@ -24,6 +24,11 @@ int ossl_ffc_validate_public_key_partial(const FFC_PARAMS *params,
+    BN_CTX *ctx = NULL;
+
+    *ret = 0;
++   if (params == NULL || pub_key == NULL || params->p == NULL) {
++       *ret = FFC_ERROR_PASSED_NULL_PARAM;
++       return 0;
++   }
++
+    ctx = BN_CTX_new_ex(NULL);
+    if (ctx == NULL)
+        goto err;
+@@ -107,6 +112,10 @@ int ossl_ffc_validate_private_key(const BIGNUM *upper, const BIGNUM *priv,
+
+    *ret = 0;
+
++   if (priv == NULL || upper == NULL) {
++       *ret = FFC_ERROR_PASSED_NULL_PARAM;
++       goto err;
++   }
+    if (BN_cmp(priv, BN_value_one()) < 0) {
+        *ret |= FFC_ERROR_PRIVKEY_TOO_SMALL;
+        goto err;
+... //other code changes.
+
+The vulnerability is also in https://github.com/ProtonVPN/android-app/blob/master/openvpn/src/main/cpp/openssl/crypto/ffc/ffc_key_validate.c
